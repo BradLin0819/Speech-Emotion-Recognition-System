@@ -1,0 +1,10 @@
+math
+wave
+struct
+contextlib
+numpy
+webrtcvad
+matplotlib
+scipy
+pandas
+scikit-learn
