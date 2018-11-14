@@ -1,0 +1,14 @@
+math
+wave
+struct
+contextlib
+numpy
+webrtcvad
+pyaudio
+matplotlib
+scipy
+scikit-learn
+cPickle
+pandas
+PyQt4
+
