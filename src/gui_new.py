@@ -330,7 +330,7 @@ class Window(QMainWindow):
         self.playlistlabel.setFont(QFont("Roman times", 20))
         self.playlistlabel.setStyleSheet('color:#00BFFF')
         self.description.resize(650, 200)
-        self.description.move(self.x / 3-180, 725)
+        self.description.move(self.x / 3-200, 725)
         self.description.setAlignment(Qt.AlignCenter)
         self.description.setFont(QFont("Roman times", 14))
         self.description.setStyleSheet('color:#D9D9D6')
@@ -339,7 +339,7 @@ class Window(QMainWindow):
         mark = ''
         text = ''
         des1 = ''
-        des2 = ''
+        
         if currText == 'German':
             if pred_label == 0:
                 self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'anger.png')))
@@ -351,6 +351,7 @@ class Window(QMainWindow):
                 mark = 'boring'
             elif pred_label == 2:
                 self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'disgust.png')))
+                self.label1.move(self.x / 3 + 45, 200)
                 self.label2.setText('Disgust')
                 mark = 'hate'
             elif pred_label == 3:
@@ -388,10 +389,11 @@ class Window(QMainWindow):
                 mark = 'angry'
             elif pred_label == 6:
                 self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'fear.png')))
-                self.label2.setText('Fear')
+                self.label2.setText('Anxiety/Fear')
                 mark = 'anxiety'
             elif pred_label == 7:
                 self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'disgust.png')))
+                self.label1.move(self.x / 3 + 45, 200)
                 self.label2.setText('Disgust')
                 mark = 'hate'
             elif pred_label == 8:
@@ -458,7 +460,7 @@ class Window(QMainWindow):
                 self.playlist.addMedia(QMediaContent(url))
                 self.player.setPlaylist(self.playlist)
         if self.playlist.mediaCount() == 0:
-            msg = QMessageBox.warning(self, 'Message', 'No music recommendation!')
+            msg = QMessageBox.warning(self, 'Message', 'No music selected!')
         elif self.playlist.mediaCount() != 0:
             self.player.play()
             self.userAction = 1
