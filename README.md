@@ -22,7 +22,7 @@ Use .wav files from EmoDB and RAVDESS as inputs
   - Input: Record or load a .wav file
   - Feature extraction: Use matplotlib to visualize extracted features.
   - Classify: Use pretrained model to get the emotion of input signal.
-  - Music recommendation: According to your emotion, we will recommend some music to make you happier. 
+  - Music recommendation: According to your emotion, we will recommend some music corresponding to your mood. 
   
 ## What I learned
 1. Know how to preprocess audio signal.
