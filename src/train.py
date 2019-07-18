@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 import sys
 import cPickle
 import argparse
@@ -100,6 +101,7 @@ def plot_confusion_matrix(language, y_true, y_pred):
 
 
 def final_model(dataframe, output):
+    output_path = '../model'
     tuned_parameters = [{'kernel': ['rbf'], 'gamma': [1e-3, 1e-4],
                          'C': [1, 10, 100, 1000]},
                         {'kernel': ['linear'], 'C': [1, 10, 100, 1000]}]
@@ -113,8 +115,8 @@ def final_model(dataframe, output):
     model = GridSearchCV(SVC(decision_function_shape='ovr'), tuned_parameters, cv=10)
     model.fit(train_std, train_label)
     
-    cPickle.dump(model, open(output+'_model.pkl', 'wb'))
-    cPickle.dump(sc1, open(output+'_range.pkl', 'wb'))
+    cPickle.dump(model, open(os.path.join(output_path, output+'_model.pkl'), 'wb'))
+    cPickle.dump(sc1, open(os.path.join(output_path, output+'_range.pkl'), 'wb'))
     
 
 def independent_train(dataframe, language):
@@ -298,6 +300,6 @@ if __name__ == '__main__':
         else:
             random_train(df, language, 0.8, int(args['time']), args['output'] or args['input'].split('.')[0])
     else:
-        final_model(df, args['output'] or args['input'].split('.')[0])
+        final_model(df, os.path.basename(args['output'] or args['input']).split('.')[0])
        
     

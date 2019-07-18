@@ -10,5 +10,5 @@ scipy
 scikit-learn
 cPickle
 pandas
-PyQt4
+PyQt5
 

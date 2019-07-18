@@ -1,18 +1,22 @@
-#coding:utf-8
+# -*- coding: utf-8 -*-
 from __future__ import print_function
 import sys
 import os
 import wave
 import pyaudio
 import cPickle
+import spotify as sp
 import numpy as np
 import preprocessing as pre
 import feature_extraction as fe
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from subprocess import *
-from PyQt4.QtGui import *
-from PyQt4.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtMultimedia import *
+import urllib
 
 
 class Window(QMainWindow):
@@ -30,23 +34,26 @@ class Window(QMainWindow):
         self.label2 = QLabel(self)
         self.label3 = QLabel(self)
         self.label4 = QLabel(self)
-        self.label4.setOpenExternalLinks(True)
         self.label5 = QLabel(self)
-        self.label5.setOpenExternalLinks(True)
-        self.label6 = QLabel(self)
-        self.label6.setOpenExternalLinks(True)
-        self.label7 = QLabel(self)
-        self.label7.setOpenExternalLinks(True)
-        self.label8 = QLabel(self)
+        self.playlistlabel = QLabel(self)
+        self.description = QLabel(self)
         self.cb1 = QComboBox(self)
         self.cb2 = QComboBox(self)
         self.bg = QPalette()
+        self.listWidget = QListWidget(self)
+        self.player = QMediaPlayer(self)
+        self.playlist = QMediaPlaylist(self)
+        self.album = QLabel(self)
         self.pixpath = '/home/han/project/img'
+        self.urls = dict()
+        self.imgurls = dict()
+        self.userAction = -1 
+        self.buffer = dict()
         self.home()
 
 
     def home(self):
-        self.bg.setBrush(QPalette.Background, QBrush(QPixmap(os.path.join(self.pixpath, 'b.png'))))
+        self.bg.setBrush(QPalette.Background, QBrush(QPixmap(os.path.join(self.pixpath, 'back.jpg'))))
         self.setPalette(self.bg)
         label1 = QLabel(self)
         label1.setStyleSheet('background:white')
@@ -92,18 +99,74 @@ class Window(QMainWindow):
         btn4.clicked.connect(self.classify)
         btn4.resize(150,100)
         btn4.move(self.x/10, 5*self.y /6-50)
+        
+        label3 = QLabel(self)
+        label3.move(4*self.x / 5 - 250, self.y/6-90)
+        label3.resize(570, 50)
+        label3.setFont(QFont("Roman times", 20, QFont.Bold))
+        label3.setStyleSheet('color:white')
+        label3.setAlignment(Qt.AlignCenter)
+        label3.setText('Music Recommendation')
+        
+        label4 = QLabel(self)
+        label4.move(3*self.x / 5-100, self.y/6-120)
+        label4.resize(350, 100)
+        label4.setPixmap(QPixmap(os.path.join(self.pixpath, 'spotify.png'))) 
+        
+        playBtn = QPushButton('Play', self)  # play button
+        pauseBtn = QPushButton('Pause', self)  # pause button
+        stopBtn = QPushButton('Stop', self)  # stop button
+        playBtn.move(3*self.x / 5+30, self.y/6)
+        pauseBtn.move(3*self.x / 5+230, self.y/6)
+        stopBtn.move(3*self.x / 5+430, self.y/6)
+        playBtn.clicked.connect(self.playhandler)
+        pauseBtn.clicked.connect(self.pausehandler)
+        stopBtn.clicked.connect(self.stophandler)
        
-    
-
+        self.listWidget.move(3*self.x / 5+30, self.y/6+250)
+        self.listWidget.resize(500, 500)
+        
+        self.album.move(3*self.x / 5+130, self.y/6+100)
+        self.album.resize(64, 64)
+        
+        self.label4.setFont(QFont("Roman times", 20, QFont.Bold))
+        self.label4.setStyleSheet('color:white')
+        self.label5.setFont(QFont("Roman times", 12, QFont.Bold))
+        self.label5.setStyleSheet('color:white')
+        self.label4.move(3*self.x / 5+210, self.y/6+92)
+        self.label5.move(3*self.x / 5+210, self.y/6+142)
+        self.label4.resize(400, 40)
+        self.label5.resize(400, 20)
+        
+        self.setStyleSheet(
+                """QListWidget{
+                    background: #191414;
+                    border: 0;
+                    color: white;
+                }
+                """
+                """QScrollBar{
+                    background: #828282;
+                }
+                """
+                
+        )
+        
+        
     def start(self):
         self.label1.clear()
         self.label2.clear()
         self.label3.clear()
         self.label4.clear()
         self.label5.clear()
-        self.label6.clear()
-        self.label7.clear()
-        self.label8.clear()
+        self.playlistlabel.clear()
+        self.album.clear()
+        self.description.clear()
+        self.listWidget.clear()
+        self.urls.clear()
+        self.imgurls.clear()
+        self.player.stop()
+        self.playlist.clear()
         
         if self.cb2.currentText() == 'Record':
             self.record()
@@ -116,7 +179,7 @@ class Window(QMainWindow):
             dbpath = '../db/ger_test/'
         else:
             dbpath = '../db/eng_test/'
-        self.name = QFileDialog.getOpenFileName(self, 'Open File', dbpath, '*.wav')
+        self.name = QFileDialog.getOpenFileName(self, 'Open file', dbpath)[0]
         
     
     def record(self):
@@ -236,15 +299,16 @@ class Window(QMainWindow):
 
     def classify(self):
         feat = fe.getTestFeat(str(self.name), mode=3)
+        model_path = '../model'
         model = None
         sc = None
         currText = self.cb1.currentText()
         if currText == 'German':
-            model = cPickle.load(open('berlin_final_model.pkl', 'rb'))
-            sc = cPickle.load(open('berlin_final_range.pkl', 'rb'))
+            model = cPickle.load(open(os.path.join(model_path, 'berlin_final_model.pkl'), 'rb'))
+            sc = cPickle.load(open(os.path.join(model_path, 'berlin_final_range.pkl'), 'rb'))
         else:
-            model = cPickle.load(open('rav_normal_final_model.pkl', 'rb'))
-            sc = cPickle.load(open('rav_normal_final_range.pkl', 'rb'))
+            model = cPickle.load(open(os.path.join(model_path, 'rav_normal_final_model.pkl'), 'rb'))
+            sc = cPickle.load(open(os.path.join(model_path, 'rav_normal_final_range.pkl'), 'rb'))
         test_data = sc.transform(feat.reshape(1, -1))
         pred_label = int(model.predict(test_data)[0])
         # W:anger, L:boredom, E:disgust, A:fear, F:happiness, T:sadness, N:neutral
@@ -257,91 +321,171 @@ class Window(QMainWindow):
         self.label2.setFont(QFont("Roman times", 20, QFont.Bold))
         self.label2.setStyleSheet('color:white')
         self.label3.resize(600, 200)
-        self.label3.move(self.x / 3-170, 645)
+        self.label3.move(self.x / 3-180, 645)
         self.label3.setFont(QFont("Roman times", 20, QFont.Bold))
         self.label3.setStyleSheet('color:white')
         self.label3.setAlignment(Qt.AlignCenter)
-        self.label4.move(3*self.x / 5, self.y/6 + 50)
-        self.label4.resize(250, 250)
-        self.label5.move(3*self.x / 5 + 320, self.y/6+ 50)
-        self.label5.resize(250, 250)
-        self.label6.move(3*self.x / 5, self.y/6 + 390)
-        self.label6.resize(250, 250)
-        self.label7.move(3*self.x / 5 + 320, self.y/6 + 390)
-        self.label7.resize(250, 250)
-        self.label8.move(3*self.x / 5, self.y/6 - 100)
-        self.label8.resize(570, 50)
-        self.label8.setFont(QFont("Roman times", 20, QFont.Bold))
-        self.label8.setStyleSheet('color:white')
-        self.label8.setAlignment(Qt.AlignCenter)
+        self.playlistlabel.resize(600, 200)
+        self.playlistlabel.move(self.x / 3-180, 680)
+        self.playlistlabel.setAlignment(Qt.AlignCenter)
+        self.playlistlabel.setFont(QFont("Roman times", 20))
+        self.playlistlabel.setStyleSheet('color:#00BFFF')
+        self.description.resize(650, 200)
+        self.description.move(self.x / 3-200, 725)
+        self.description.setAlignment(Qt.AlignCenter)
+        self.description.setFont(QFont("Roman times", 14))
+        self.description.setStyleSheet('color:#D9D9D6')
+        
+        
+        mark = ''
+        text = ''
+        des1 = ''
         
         if currText == 'German':
             if pred_label == 0:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'anger.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'anger.png')))
                 self.label2.setText('Angry')
+                mark = 'angry'
             elif pred_label == 1:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'bored.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'bored.png')))
                 self.label2.setText('Bored')
+                mark = 'boring'
             elif pred_label == 2:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'disgust.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'disgust.png')))
+                self.label1.move(self.x / 3 + 45, 200)
                 self.label2.setText('Disgust')
+                mark = 'hate'
             elif pred_label == 3:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'fear.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'fear.png')))
                 self.label2.setText('Anxiety/Fear')
+                mark = 'anxiety'
             elif pred_label == 4:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'happy.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'happy.png')))
                 self.label2.setText('Happy')
+                mark = 'happy'
             elif pred_label == 5:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'sad.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'sad.png')))
                 self.label2.setText('Sad')
+                mark = 'sad'
             elif pred_label == 6:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'neutral.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'neutral.png')))
                 self.label2.setText('Neutral')
-            if pred_label in (0, 1, 2, 3, 5, 6):
-                self.label3.setText('Listen to some music to be happier!')
-                self.label4.setText('<a href="https://www.youtube.com/watch?v=AbPED9bisSc"><img src="../img/1d_2.jpg"></a>')
-                self.label5.setText('<a href="https://www.youtube.com/watch?v=xWTiOqJqkk0"><img src="../img/mayday.jpg"></a>')    
-                self.label6.setText('<a href="https://www.youtube.com/watch?v=sHD_z90ZKV0"><img src="../img/straw.jpg"></a>')    
-                self.label7.setText('<a href="https://www.youtube.com/watch?v=QJO3ROT-A4E"><img src="../img/1d.jpg"></a>')
-                self.label8.setText('Music Recommendation')        
-    
+                mark = 'neutral'   
         else:
             if pred_label in (1, 2):
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'neutral.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'neutral.png')))
                 self.label2.setText('Neutral')
+                mark = 'neutral'
             elif pred_label == 3:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'happy.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'happy.png')))
                 self.label2.setText('Happy')
+                mark = 'happy'
             elif pred_label == 4:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'sad.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'sad.png')))
                 self.label2.setText('Sad')
+                mark = 'sad'
             elif pred_label == 5:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'anger.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'anger.png')))
                 self.label2.setText('Angry')
+                mark = 'angry'
             elif pred_label == 6:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'fear.jpeg')))
-                self.label2.setText('Fear')
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'fear.png')))
+                self.label2.setText('Anxiety/Fear')
+                mark = 'anxiety'
             elif pred_label == 7:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'disgust.jpeg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'disgust.png')))
+                self.label1.move(self.x / 3 + 45, 200)
                 self.label2.setText('Disgust')
+                mark = 'hate'
             elif pred_label == 8:
-                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'surprised.jpg')))
+                self.label1.setPixmap(QPixmap(os.path.join(self.pixpath, 'surprised.png')))
                 self.label2.setText('Surprised')
-            if pred_label in (1, 2, 4, 5, 6, 7):
-                self.label3.setText('Listen to some music to be happier!')
-                self.label4.setText('<a href="https://www.youtube.com/watch?v=AbPED9bisSc"><img src="../img/1d_2.jpg"></a>')
-                self.label5.setText('<a href="https://www.youtube.com/watch?v=xWTiOqJqkk0"><img src="../img/mayday.jpg"></a>')    
-                self.label6.setText('<a href="https://www.youtube.com/watch?v=sHD_z90ZKV0"><img src="../img/straw.jpg"></a>')    
-                self.label7.setText('<a href="https://www.youtube.com/watch?v=QJO3ROT-A4E"><img src="../img/1d.jpg"></a>')  
-                self.label8.setText('Music Recommendation')      
+                mark = 'happy'
+
+        if mark == 'angry':
+            text = "Calm Vibe"
+            des1 = "Take an hour to slow it down with some calming keys and strings."
+        elif mark == 'boring':
+            text = "Fresh Finds"
+            des1 = "The freshest new music from independent artists and labels."
+        elif mark == 'hate':
+            text = "Life Sucks"
+            des1 = "Feeling like everything just plain sucks? We've all been there."
+        elif mark == 'anxiety':
+            text = "消除壓力"
+            des1 = "想紓解緊張壓力，就聽這些輕鬆、愉快的歌曲來讓自己放輕鬆"
+        elif mark == 'sad':
+            text = "悲傷釋放"
+            des1 = "在音樂的懷抱裡，你想哭就哭。"
+        elif mark == 'happy':
+            text = "Happy Hits"
+            des1 = "Hits to boost your mood and fill you with happiness!"
+        elif mark == 'neutral':
+            text = "Piano in the Background"
+            des1 = "A calm and relaxing piano soundtrack to all your daily activities."
         
+        
+        self.label3.setText("Let's listen to some music from")
+        self.playlistlabel.setText(text)
+        self.description.setText(des1)
+        
+        songlist = sp.get_recommended_songs(mark)
+        song_no = len(songlist)
+        for song in songlist:
+            if song[2] == None or song[3] == None:
+                continue
+            name = song[0] + ' - ' + song[1]
+            self.buffer[name] = [song[0], song[1]] 
+            self.urls[name] = song[3]
+            self.imgurls[name] = song[2]
+            i = QListWidgetItem(name)
+            self.listWidget.addItem(i)   
+        self.listWidget.itemSelectionChanged.connect(self.selectionChanged)
+        self.listWidget.itemDoubleClicked.connect(self.playhandler) 
+
+    def selectionChanged(self):
+        self.userAction = 4
+                                                     
+    def playhandler(self):
+        if self.userAction != 2:
+            for item in self.listWidget.selectedItems():
+                url = QUrl(self.urls[item.text()])
+                imgurl = self.imgurls[item.text()]
+                data = urllib.urlopen(imgurl).read()
+                image = QImage()
+                image.loadFromData(data)
+                self.album.setPixmap(QPixmap(image))
+                self.label4.setText(self.buffer[item.text()][0].split('-')[0])
+                self.label5.setText(self.buffer[item.text()][1])
+                self.playlist.clear()
+                self.playlist.addMedia(QMediaContent(url))
+                self.player.setPlaylist(self.playlist)
+        if self.playlist.mediaCount() == 0:
+            msg = QMessageBox.warning(self, 'Message', 'No music selected!')
+        elif self.playlist.mediaCount() != 0:
+            self.player.play()
+            self.userAction = 1
+
+    def pausehandler(self):
+        self.userAction = 2
+        self.player.pause()
+
+    def stophandler(self):
+        self.userAction = 0
+        self.label4.clear()
+        self.label5.clear()
+        self.album.clear()
+        self.player.stop()
+        self.playlist.clear()
+        self.statusBar().showMessage("Stopped and cleared playlist")
+
 def main():
-   app = QApplication(sys.argv)
-   window = Window()
-   window.show()
-   sys.exit(app.exec_())
-
-
-
+    app = QApplication(sys.argv)
+    window = Window()
+    window.show()
+    sys.exit(app.exec_())
+   
 if __name__ == '__main__':
-   main()
+    main()
+
+
