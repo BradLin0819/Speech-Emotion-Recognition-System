@@ -1,7 +1,7 @@
 # Speech-Emotion-Recognition-System
 
 ## Description
-Speech-Emotion-Recognition-System is a project that can detect your emotion with few seconds recording. In this project, I choose [EmoDB](http://www.emodb.bilderbar.info/navi.html) and [RAVDESS](https://zenodo.org/record/1188976#.XTBWj-gzZEZ) as my training corpus.
+Speech-Emotion-Recognition-System is a project that can detect your emotion with few seconds recording. In this project, we choose [EmoDB](http://www.emodb.bilderbar.info/navi.html) and [RAVDESS](https://zenodo.org/record/1188976#.XTBWj-gzZEZ) as my training corpus.
 
 ## Environment: Ubuntu 16.04 LTS, python 2.7
 ## Implementation
